@@ -1,5 +1,20 @@
 # Getting Started with Create React App
 
+## Google sign-in setup
+
+The account page includes a **Continue with Google** button for both sign-in and registration. To enable authentication:
+
+1. In Google Cloud, configure the OAuth consent screen and create an OAuth client of type **Web application**.
+2. Add `http://localhost:3000/api/auth/google/callback` as an authorized redirect URI for local development.
+3. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and a long random `JWT_SECRET` in the project's `.env`. Keep the client secret on the server. Set `APP_URL=http://localhost:3000`.
+4. Run `npm run dev` to start both the React app and authentication API. Restart the API after changing `.env`.
+
+For a deployed site, add its exact HTTPS callback URL in Google Cloud and set the same server environment variables with `APP_URL` pointing to that site's origin. The current account store uses a local JSON file; deploy with persistent database storage before enabling account creation on Vercel.
+
+Without Google credentials, the button remains visible and explains that Google sign-in is not available yet. OAuth callbacks validate a short-lived state cookie and require a verified Google email before creating a session.
+
+Google's setup reference: [OAuth for web server applications](https://developers.google.com/identity/protocols/oauth2/web-server).
+
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
 ## Available Scripts

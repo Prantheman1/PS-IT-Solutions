@@ -17,14 +17,27 @@ function GoogleMark() {
 export default function Account() {
   const { login, register } = useAuth();
   const [mode, setMode] = useState('login');
-  const [googleReady, setGoogleReady] = useState(false);
+  const [googleReady, setGoogleReady] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({ name: '', email: '', password: '' });
 
   useEffect(() => {
     api.config().then((data) => setGoogleReady(Boolean(data.google))).catch(() => setGoogleReady(false));
+    const googleError = new URLSearchParams(window.location.search).get('auth_error');
+    if (googleError) {
+      setError('Google sign-in could not be completed. Please try again.');
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.hash}`);
+    }
   }, []);
+
+  function onGoogleSignIn() {
+    if (!googleReady) {
+      setError('Google sign-in is not available yet. Please use email and password for now.');
+      return;
+    }
+    window.location.assign('/api/auth/google');
+  }
 
   function update(event) {
     setForm((current) => ({ ...current, [event.target.name]: event.target.value }));
@@ -49,7 +62,6 @@ export default function Account() {
     <section className="account" id="login">
       <p className="account__brand">PS IT Solutions</p>
       <div className="account__card">
-        <p className="account__kicker">Client account</p>
         <h1>{mode === 'login' ? 'Sign in' : 'Create an account'}</h1>
         <p className="account__intro">
           Sign in to enter the site. You can use an email and password, or an existing Google account.
@@ -88,15 +100,12 @@ export default function Account() {
 
         <div className="account__divider"><span>or</span></div>
 
-        {googleReady ? (
-          <a className="account__google" href="/api/auth/google">
-            <GoogleMark />
-            Continue with Google
-          </a>
-        ) : (
-          <p className="account__note">
-            Google sign-in is ready in the app. It turns on after a Google client ID and secret are added in Vercel.
-          </p>
+        <button type="button" className="account__google" onClick={onGoogleSignIn} disabled={busy || googleReady === null} aria-describedby={googleReady === false ? 'google-availability' : undefined}>
+          <GoogleMark />
+          Continue with Google
+        </button>
+        {googleReady === false && (
+          <p className="account__note" id="google-availability">Google sign-in will be available soon. You can use email and password today.</p>
         )}
       </div>
     </section>

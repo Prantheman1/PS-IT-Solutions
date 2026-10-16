@@ -153,6 +153,28 @@
   border: 1px solid #dadce0;
   color: #2c3e50;
   background: #fff;
+  border-radius: 999px;
+  min-height: 48px;
+  padding: 0.75rem 1rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(44, 62, 80, 0.08);
+}
+
+.account__google:hover:not(:disabled) {
+  background: #f8faff;
+  border-color: #b8c9e5;
+}
+
+.account__google:focus-visible {
+  outline: 3px solid #1a73e8;
+  outline-offset: 3px;
+}
+
+.account__google:disabled {
+  opacity: 0.7;
+  cursor: wait;
 }
 
 .account__google-mark {
@@ -162,6 +184,7 @@
 
 .account__note {
   font-size: 0.92rem;
+  margin-top: 0.85rem;
 }
 
 .account__profile {

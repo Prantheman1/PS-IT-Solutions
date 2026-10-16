@@ -10,9 +10,9 @@ function appUrl() {
   return (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '');
 }
 
-function cookieValue(token, maxAge) {
+function cookieValue(token, maxAge, name = COOKIE) {
   const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
-  return `${COOKIE}=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${maxAge}${secure}`;
+  return `${name}=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${maxAge}${secure}`;
 }
 
 function signUser(user) {
@@ -51,4 +51,4 @@ function googleConfigured() {
   return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 }
 
-module.exports = { appUrl, setSession, clearSession, readSession, googleConfigured };
+module.exports = { appUrl, setSession, clearSession, readSession, googleConfigured, readCookie, cookieValue };

@@ -1,6 +1,15 @@
 const bcrypt = require('bcryptjs');
+const { randomBytes, timingSafeEqual } = require('node:crypto');
 const { publicUser, findByEmail, upsert } = require('./lib/users');
-const { appUrl, setSession, clearSession, readSession, googleConfigured } = require('./lib/session');
+const { appUrl, setSession, clearSession, readSession, googleConfigured, readCookie, cookieValue } = require('./lib/session');
+
+const GOOGLE_STATE_COOKIE = 'ps_google_state';
+
+function googleFailure(res) {
+  res.statusCode = 302;
+  res.setHeader('Location', `${appUrl()}/?auth_error=google#login`);
+  res.end();
+}
 
 function send(res, status, body) {
   res.statusCode = status;
@@ -104,6 +113,9 @@ function googleStart(_req, res) {
   url.searchParams.set('response_type', 'code');
   url.searchParams.set('scope', 'openid email profile');
   url.searchParams.set('prompt', 'select_account');
+  const state = randomBytes(32).toString('hex');
+  url.searchParams.set('state', state);
+  res.setHeader('Set-Cookie', cookieValue(state, 600, GOOGLE_STATE_COOKIE));
   res.statusCode = 302;
   res.setHeader('Location', url.toString());
   res.end();
@@ -114,13 +126,16 @@ async function googleCallback(req, res) {
   if (!googleConfigured()) {
     return send(res, 503, { error: 'Google sign-in is not configured.' });
   }
-  if (!query.code) {
-    res.statusCode = 302;
-    res.setHeader('Location', `${appUrl()}/#login`);
-    res.end();
-    return;
+  let expectedState;
+  try { expectedState = readCookie(req, GOOGLE_STATE_COOKIE); } catch { expectedState = ''; }
+  res.setHeader('Set-Cookie', cookieValue('', 0, GOOGLE_STATE_COOKIE));
+  const receivedState = typeof query.state === 'string' ? query.state : '';
+  if (!expectedState || Buffer.byteLength(expectedState) !== Buffer.byteLength(receivedState) ||
+      !timingSafeEqual(Buffer.from(expectedState), Buffer.from(receivedState)) || query.error || typeof query.code !== 'string') {
+    return googleFailure(res);
   }
 
+  try {
   const redirectUri = `${appUrl()}/api/auth/google/callback`;
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
@@ -134,18 +149,17 @@ async function googleCallback(req, res) {
     }),
   });
   const token = await tokenRes.json();
-  if (!token.access_token) {
-    return send(res, 401, { error: 'Google did not return an account.' });
-  }
+  if (!tokenRes.ok || !token.access_token) return googleFailure(res);
 
   const profileRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
     headers: { Authorization: `Bearer ${token.access_token}` },
   });
   const profile = await profileRes.json();
-  if (!profile.email) return send(res, 401, { error: 'Google did not share an email address.' });
+  if (!profileRes.ok || !profile.email || !profile.sub || profile.email_verified !== true) return googleFailure(res);
 
   const email = profile.email.toLowerCase();
   const existing = findByEmail(email);
+  if (existing?.googleId && existing.googleId !== profile.sub) return googleFailure(res);
   const user = upsert({
     id: existing?.id || crypto.randomUUID(),
     name: existing?.name || profile.name || email,
@@ -155,9 +169,13 @@ async function googleCallback(req, res) {
     googleId: profile.sub,
   });
   setSession(res, user);
+  res.setHeader('Set-Cookie', [res.getHeader('Set-Cookie'), cookieValue('', 0, GOOGLE_STATE_COOKIE)]);
   res.statusCode = 302;
   res.setHeader('Location', `${appUrl()}/`);
   res.end();
+  } catch {
+    return googleFailure(res);
+  }
 }
 
 module.exports = { config, register, login, logout, me, googleStart, googleCallback };
